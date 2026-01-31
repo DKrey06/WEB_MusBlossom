@@ -1,21 +1,29 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
-import path from 'path'
+import { fileURLToPath, URL } from 'url'
 
 export default defineConfig({
   plugins: [vue()],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
   server: {
-    port: 5173,
-    proxy: {
-      '/api': {
-        target: 'http://localhost:5000',
-        changeOrigin: true,
-      },
+    port: 8080,
+    host: '0.0.0.0',
+    strictPort: true,
+    cors: true,
+    hmr: {
+      host: 'localhost',
+      port: 8080,
     },
+    watch: {
+      usePolling: true, // Важно для Docker!
+    },
+  },
+  preview: {
+    port: 8080,
+    host: true,
   },
 })

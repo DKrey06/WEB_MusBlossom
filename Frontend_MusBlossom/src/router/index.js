@@ -1,5 +1,4 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { useAuthStore } from '@/stores/auth'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -140,28 +139,32 @@ const router = createRouter({
   },
 })
 
+// ✅ Исправление: импортируем useAuthStore внутри beforeEach
 router.beforeEach((to, from, next) => {
-  const authStore = useAuthStore()
+  // ✅ Импортируем динамически внутри функции
+  import('@/stores/auth').then(({ useAuthStore }) => {
+    const authStore = useAuthStore()
 
-  if (to.meta.title) {
-    document.title = to.meta.title
-  }
+    if (to.meta.title) {
+      document.title = to.meta.title
+    }
 
-  if (to.meta.requiresAuth && !authStore.isAuthenticated) {
-    next('/login')
-    return
-  }
+    if (to.meta.requiresAuth && !authStore.isAuthenticated) {
+      next('/login')
+      return
+    }
 
-  if (to.meta.guestOnly && authStore.isAuthenticated) {
-    next('/')
-    return
-  }
+    if (to.meta.guestOnly && authStore.isAuthenticated) {
+      next('/')
+      return
+    }
 
-  if (authStore.isAuthenticated && !authStore.user) {
-    authStore.fetchUser()
-  }
+    if (authStore.isAuthenticated && !authStore.user) {
+      authStore.fetchUser()
+    }
 
-  next()
+    next()
+  })
 })
 
 router.afterEach((to, from) => {

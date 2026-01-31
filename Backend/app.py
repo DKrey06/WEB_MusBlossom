@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from flask import send_from_directory
 from flask_jwt_extended import JWTManager, create_access_token, create_refresh_token, jwt_required, get_jwt_identity
 from flask_login import LoginManager
 from datetime import datetime, timedelta
@@ -8,17 +9,27 @@ import os
 
 from models import db, User, Post, Comment, Playlist, Review, Concert, Tag, Follow, Course
 from config import Config
+from flask import send_file
 
 app = Flask(__name__)
 app.config.from_object(Config)
 
+cors_origins = app.config.get('CORS_ORIGINS')
+if cors_origins is None:
+    CORS_ORIGINS = ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:8080']
+elif isinstance(cors_origins, str):
+    CORS_ORIGINS = cors_origins.split(',')
+elif isinstance(cors_origins, list):
+    CORS_ORIGINS = cors_origins
+else:
+    CORS_ORIGINS = ['http://localhost:5173']
+
 CORS(app, resources={
     r"/api/*": {
-        "origins": ["http://localhost:5173", "http://127.0.0.1:5173"],
+        "origins": CORS_ORIGINS,
         "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         "allow_headers": ["Content-Type", "Authorization"],
-        "supports_credentials": True,
-        "expose_headers": ["Content-Type", "Authorization"]
+        "supports_credentials": True
     }
 }, supports_credentials=True)
 
@@ -883,6 +894,19 @@ def api_delete_account():
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
 
+
+
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def serve_frontend(path):
+    if path.startswith('api/'):
+        return None
+    
+    static_path = os.path.join(app.root_path, 'static')
+
+    if path and os.path.exists(os.path.join(static_path, path)):
+        return send_from_directory('static', path)
+    
+    return send_from_directory('static', 'index.html')
 if __name__ == '__main__':
-    init_db()
     app.run(debug=True, host='0.0.0.0', port=5000)

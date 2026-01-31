@@ -6,7 +6,9 @@ import App from './App.vue'
 import router from './router'
 import './assets/global.css'
 
-const API_BASE_URL = 'http://localhost:5000/api'
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+
+console.log('API Base URL:', API_BASE_URL)
 
 const axiosInstance = axios.create({
   baseURL: API_BASE_URL,
@@ -19,70 +21,26 @@ const axiosInstance = axios.create({
 
 axiosInstance.interceptors.request.use(
   (config) => {
+    console.log(`Request: ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`)
     const token = localStorage.getItem('access_token')
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
     return config
   },
-  (error) => Promise.reject(error),
+  (error) => {
+    console.error('Request error:', error)
+    return Promise.reject(error)
+  },
 )
 
 axiosInstance.interceptors.response.use(
   (response) => {
-    console.log(
-      `API Call: ${response.config.method?.toUpperCase()} ${response.config.url}`,
-      response.status,
-    )
+    console.log(`Response ${response.status}: ${response.config.url}`)
     return response.data
   },
   async (error) => {
-    console.error('API Error:', error.response?.status, error.config?.url)
-
-    const originalRequest = error.config
-
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true
-
-      try {
-        const refreshToken = localStorage.getItem('refresh_token')
-        if (!refreshToken) {
-          throw new Error('No refresh token')
-        }
-
-        const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${refreshToken}`,
-          },
-        })
-
-        const data = await response.json()
-
-        if (data.success) {
-          const newAccessToken = data.access_token
-          localStorage.setItem('access_token', newAccessToken)
-
-          originalRequest.headers.Authorization = `Bearer ${newAccessToken}`
-          return axiosInstance(originalRequest)
-        } else {
-          throw new Error('Token refresh failed')
-        }
-      } catch (refreshError) {
-        console.error('Token refresh failed:', refreshError)
-
-        localStorage.removeItem('access_token')
-        localStorage.removeItem('refresh_token')
-        localStorage.removeItem('user')
-
-        if (window.location.pathname !== '/login') {
-          window.location.href = '/login'
-        }
-
-        return Promise.reject(refreshError)
-      }
-    }
-
+    console.error('Response error:', error.response?.status, error.config?.url)
     return Promise.reject(error)
   },
 )
@@ -95,9 +53,5 @@ app.config.globalProperties.$api = axiosInstance
 
 app.use(pinia)
 app.use(router)
-
-import { useAuthStore } from '@/stores/auth'
-const authStore = useAuthStore()
-authStore.init()
 
 app.mount('#app')
