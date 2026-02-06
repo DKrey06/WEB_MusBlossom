@@ -113,6 +113,10 @@
 <script>
 import axios from 'axios'
 
+const api = axios.create({
+  baseURL: import.meta.env.VITE_API_URL || '/api',
+})
+
 export default {
   name: 'HomeView',
   data() {
@@ -181,7 +185,7 @@ export default {
       ],
       loading: false,
       error: null,
-      defaultAvatar: new URL('@/assets/images/Avatar.jpg', import.meta.url).href,
+      defaultAvatar: 'https://i.pravatar.cc/150?img=1',
     }
   },
   async mounted() {
@@ -192,12 +196,18 @@ export default {
       this.loading = true
       this.error = null
       try {
-        const response = await axios.get('/posts', {
-          params: { limit: 3 },
+        const response = await api.get('/posts', {
+          params: {
+            per_page: 3,
+            page: 1,
+          },
         })
+
+        console.log('API Response:', response.data)
 
         if (response.data.success) {
           this.recentPosts = response.data.posts || []
+          console.log('Загружено постов:', this.recentPosts.length)
         } else {
           this.error = 'Ошибка загрузки постов: ' + (response.data.error || 'Неизвестная ошибка')
           console.error('Ошибка загрузки постов:', response.data.error)
@@ -213,12 +223,10 @@ export default {
           } else {
             this.error = `Ошибка сервера: ${error.response.status}`
           }
+          console.error('Response data:', error.response.data)
         } else if (error.request) {
-          this.error = 'Не удается подключиться к серверу. Проверьте:'
-          this.error += '<br>1. Запущен ли бэкенд?'
-          this.error +=
-            '<br>2. Доступен ли по адресу: ' +
-            (import.meta.env.VITE_API_URL || 'http://localhost:5000/api')
+          this.error = 'Не удается подключиться к серверу. Проверьте запущен ли бэкенд.'
+          console.error('Request error:', error.request)
         } else {
           this.error = 'Ошибка при выполнении запроса: ' + error.message
         }
@@ -250,7 +258,7 @@ export default {
 
     async likePost(postId) {
       try {
-        const response = await axios.post(`/posts/${postId}/like`, null, {
+        const response = await api.post(`/posts/${postId}/like`, null, {
           headers: {
             Authorization: `Bearer ${localStorage.getItem('access_token')}`,
           },
@@ -264,7 +272,9 @@ export default {
         }
       } catch (error) {
         console.error('Ошибка при лайке поста:', error)
-        alert('Для лайка нужно войти в систему')
+        if (error.response?.status === 401) {
+          alert('Для лайка нужно войти в систему')
+        }
       }
     },
 

@@ -27,5 +27,8 @@ export default defineConfig(({ mode }) => {
       outDir: 'dist',
       sourcemap: false,
     },
+    watch: {
+      usePolling: true,
+    },
   }
 })

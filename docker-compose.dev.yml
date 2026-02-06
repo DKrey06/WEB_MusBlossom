@@ -3,25 +3,36 @@ services:
     build:
       context: ./Backend
       dockerfile: Dockerfile.dev
+    container_name: musblossom-dev-backend
     volumes:
       - ./Backend:/app
-      - /app/__pycache__
+      - backend_cache:/app/__pycache__
     ports:
       - "5000:5000"
     environment:
       - FLASK_ENV=development
       - FLASK_DEBUG=1
+      - FLASK_APP=app.py
+      - SECRET_KEY=dev-secret-key-change-in-production
+      - JWT_SECRET_KEY=dev-jwt-secret-key-change
+      - DATABASE_URL=sqlite:///musblossom.db
+      - CORS_ORIGINS=http://localhost:8080,http://localhost:5173,http://127.0.0.1:8080,http://127.0.0.1:5173
     stdin_open: true
     tty: true
     command: python app.py
+    restart: unless-stopped
+    networks:
+      - musblossom-dev-network
 
   frontend:
     build:
       context: ./Frontend_MusBlossom
       dockerfile: Dockerfile.dev
+    container_name: musblossom-dev-frontend
     volumes:
       - ./Frontend_MusBlossom:/app
       - /app/node_modules
+      - /app/dist
     ports:
       - "8080:8080"
     environment:
@@ -31,5 +42,16 @@ services:
       - VITE_API_URL=http://localhost:5000/api
     stdin_open: true
     tty: true
+    command: npm run dev
     depends_on:
       - backend
+    networks:
+      - musblossom-dev-network
+
+volumes:
+  backend_cache:
+    driver: local
+
+networks:
+  musblossom-dev-network:
+    driver: bridge
