@@ -48,6 +48,11 @@
         <p>Загрузка постов...</p>
       </div>
 
+      <div v-else-if="error" class="error-message">
+        <p>⚠️ {{ error }}</p>
+        <button @click="loadRecentPosts" class="btn btn-primary">Повторить</button>
+      </div>
+
       <div v-else-if="recentPosts.length === 0" class="no-posts">
         <p>Пока нет постов. Будьте первым!</p>
         <router-link to="/create-post" class="btn btn-primary">Создать пост</router-link>
@@ -106,6 +111,8 @@
 </template>
 
 <script>
+import axios from 'axios'
+
 export default {
   name: 'HomeView',
   data() {
@@ -173,6 +180,7 @@ export default {
         },
       ],
       loading: false,
+      error: null,
       defaultAvatar: new URL('@/assets/images/Avatar.jpg', import.meta.url).href,
     }
   },
@@ -182,26 +190,38 @@ export default {
   methods: {
     async loadRecentPosts() {
       this.loading = true
+      this.error = null
       try {
-        const response = await fetch('http://localhost:5000/api/posts?limit=3', {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+        const response = await axios.get('/posts', {
+          params: { limit: 3 },
         })
 
-        if (response.ok) {
-          const data = await response.json()
-          if (data.success) {
-            this.recentPosts = data.posts || []
-          } else {
-            console.error('Ошибка загрузки постов:', data.error)
-          }
+        if (response.data.success) {
+          this.recentPosts = response.data.posts || []
         } else {
-          console.error('Ошибка HTTP:', response.status)
+          this.error = 'Ошибка загрузки постов: ' + (response.data.error || 'Неизвестная ошибка')
+          console.error('Ошибка загрузки постов:', response.data.error)
         }
       } catch (error) {
         console.error('Ошибка при загрузке постов:', error)
+
+        if (error.response) {
+          if (error.response.status === 404) {
+            this.error = 'API endpoint не найден'
+          } else if (error.response.status === 500) {
+            this.error = 'Ошибка на сервере'
+          } else {
+            this.error = `Ошибка сервера: ${error.response.status}`
+          }
+        } else if (error.request) {
+          this.error = 'Не удается подключиться к серверу. Проверьте:'
+          this.error += '<br>1. Запущен ли бэкенд?'
+          this.error +=
+            '<br>2. Доступен ли по адресу: ' +
+            (import.meta.env.VITE_API_URL || 'http://localhost:5000/api')
+        } else {
+          this.error = 'Ошибка при выполнении запроса: ' + error.message
+        }
       } finally {
         this.loading = false
       }
@@ -230,26 +250,21 @@ export default {
 
     async likePost(postId) {
       try {
-        const token = localStorage.getItem('access_token')
-        const response = await fetch(`http://localhost:5000/api/posts/${postId}/like`, {
-          method: 'POST',
+        const response = await axios.post(`/posts/${postId}/like`, null, {
           headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
+            Authorization: `Bearer ${localStorage.getItem('access_token')}`,
           },
         })
 
-        if (response.ok) {
-          const data = await response.json()
-          if (data.success) {
-            const post = this.recentPosts.find((p) => p.id === postId)
-            if (post) {
-              post.likes_count = data.likes_count
-            }
+        if (response.data.success) {
+          const post = this.recentPosts.find((p) => p.id === postId)
+          if (post) {
+            post.likes_count = response.data.likes_count
           }
         }
       } catch (error) {
         console.error('Ошибка при лайке поста:', error)
+        alert('Для лайка нужно войти в систему')
       }
     },
 
@@ -259,12 +274,27 @@ export default {
 
     buyTickets(concert) {
       console.log('Покупка билетов на:', concert.artist)
+      alert(`Покупка билетов на ${concert.artist} - функция в разработке`)
     },
   },
 }
 </script>
 
 <style scoped>
+.error-message {
+  text-align: center;
+  padding: 3rem;
+  background: rgba(255, 0, 0, 0.1);
+  border-radius: 15px;
+  border: 1px solid rgba(255, 0, 0, 0.3);
+}
+
+.error-message p {
+  color: #ff6b6b;
+  margin-bottom: 1rem;
+  line-height: 1.5;
+}
+
 .home-view {
   max-width: 1200px;
   margin: 0 auto;

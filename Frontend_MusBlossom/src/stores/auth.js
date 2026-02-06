@@ -1,6 +1,11 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import axios from 'axios'
+
+const api = axios.create({
+  baseURL: import.meta.env.VITE_API_URL || '/api',
+})
 
 export const useAuthStore = defineStore('auth', () => {
   const router = useRouter()
@@ -37,15 +42,13 @@ export const useAuthStore = defineStore('auth', () => {
     error.value = null
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ username, email, password, bio }),
+      const { data } = await api.post('/auth/register', {
+        username,
+        email,
+        password,
+        bio,
       })
 
-      const data = await response.json()
       console.log('Register response:', data)
 
       if (data.success) {
@@ -66,7 +69,17 @@ export const useAuthStore = defineStore('auth', () => {
       }
     } catch (err) {
       console.error('Register error:', err)
-      error.value = 'Ошибка соединения с сервером'
+
+      if (err.response?.data?.errors) {
+        error.value = err.response.data.errors
+      } else if (err.response?.data?.error) {
+        error.value = err.response.data.error
+      } else if (err.message.includes('Network Error') || err.code === 'ERR_NETWORK') {
+        error.value = 'Не удается подключиться к серверу. Проверьте, запущен ли бэкенд.'
+      } else {
+        error.value = 'Ошибка соединения с сервером'
+      }
+
       return { success: false, error: error.value }
     } finally {
       isLoading.value = false
@@ -78,15 +91,11 @@ export const useAuthStore = defineStore('auth', () => {
     error.value = null
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
+      const { data } = await api.post('/auth/login', {
+        email,
+        password,
       })
 
-      const data = await response.json()
       console.log('Login response:', data)
 
       if (data.success) {
@@ -107,7 +116,15 @@ export const useAuthStore = defineStore('auth', () => {
       }
     } catch (err) {
       console.error('Login error:', err)
-      error.value = 'Ошибка соединения с сервером'
+
+      if (err.response?.data?.error) {
+        error.value = err.response.data.error
+      } else if (err.message.includes('Network Error') || err.code === 'ERR_NETWORK') {
+        error.value = 'Не удается подключиться к серверу. Проверьте, запущен ли бэкенд.'
+      } else {
+        error.value = 'Ошибка соединения с сервером'
+      }
+
       return { success: false, error: error.value }
     } finally {
       isLoading.value = false
@@ -128,14 +145,12 @@ export const useAuthStore = defineStore('auth', () => {
     }
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/refresh', {
-        method: 'POST',
+      const { data } = await api.post('/auth/refresh', null, {
         headers: {
           Authorization: `Bearer ${refreshToken}`,
         },
       })
 
-      const data = await response.json()
       console.log('Refresh token response:', data)
 
       if (data.success) {
@@ -157,13 +172,12 @@ export const useAuthStore = defineStore('auth', () => {
     if (!token) return null
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/me', {
+      const { data } = await api.get('/auth/me', {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       })
 
-      const data = await response.json()
       if (data.success) {
         user.value = data.user
         localStorage.setItem('user', JSON.stringify(data.user))

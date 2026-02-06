@@ -32,17 +32,16 @@
     <div class="posts-content">
       <aside class="sidebar">
         <div class="sidebar-section">
-          <h3>Тренды</h3>
+          <h3>Популярные теги</h3>
           <div class="trending-tags">
             <span class="trend-tag" v-for="tag in trendingTags" :key="tag.name">
               #{{ tag.name }}
-              <small>{{ tag.count }}</small>
             </span>
           </div>
         </div>
 
         <div class="sidebar-section">
-          <h3>Популярные авторы</h3>
+          <h3>Рекомендуемые авторы</h3>
           <div class="popular-authors">
             <div class="author-card" v-for="author in popularAuthors" :key="author.id">
               <img :src="author.avatar" alt="Avatar" />
@@ -56,42 +55,14 @@
             </div>
           </div>
         </div>
-
-        <div class="sidebar-section">
-          <h3>Статистика</h3>
-          <div class="stats">
-            <div class="stat-item">
-              <span class="stat-value">{{ stats.totalPosts }}</span>
-              <span class="stat-label">Постов</span>
-            </div>
-            <div class="stat-item">
-              <span class="stat-value">{{ stats.activeUsers }}</span>
-              <span class="stat-label">Активных</span>
-            </div>
-            <div class="stat-item">
-              <span class="stat-value">{{ stats.dailyPosts }}</span>
-              <span class="stat-label">Сегодня</span>
-            </div>
-          </div>
-        </div>
       </aside>
 
       <main class="posts-feed">
-        <div class="create-post-card">
-          <div class="create-post-header">
-            <img :src="currentUserAvatar" class="user-avatar" alt="Avatar" />
-            <input
-              type="text"
-              placeholder="О чем хочешь рассказать?"
-              @click="showCreateModal = true"
-            />
-          </div>
-          <div class="create-post-actions">
-            <button class="action-btn" @click="showCreateModal = true">📝 Текст</button>
-            <button class="action-btn" @click="showCreateModal = true">🎵 Трек</button>
-            <button class="action-btn" @click="showCreateModal = true">🖼️ Фото</button>
-            <button class="action-btn" @click="showCreateModal = true">🎥 Видео</button>
-          </div>
+        <div class="create-post-btn-container">
+          <button class="create-post-btn" @click="showCreateModal = true">
+            <span class="plus-icon">+</span>
+            Создать пост
+          </button>
         </div>
 
         <div class="posts-list">
@@ -100,7 +71,11 @@
           </div>
         </div>
 
-        <div class="pagination">
+        <div v-if="filteredPosts.length === 0" class="no-posts">
+          <p>Постов пока нет. Будьте первым!</p>
+        </div>
+
+        <div class="pagination" v-if="filteredPosts.length > 0">
           <button class="pagination-btn" :disabled="currentPage === 1" @click="prevPage">
             ← Назад
           </button>
@@ -146,11 +121,11 @@ export default {
         { id: 'news', label: 'Новости' },
       ],
       trendingTags: [
-        { name: 'новинка', count: 245 },
-        { name: 'хипхоп', count: 189 },
-        { name: 'рок', count: 167 },
-        { name: 'обзор', count: 142 },
-        { name: 'концерт', count: 128 },
+        { name: 'новинка' },
+        { name: 'хипхоп' },
+        { name: 'рок' },
+        { name: 'обзор' },
+        { name: 'концерт' },
       ],
       popularAuthors: [
         {
@@ -175,11 +150,6 @@ export default {
           isFollowing: false,
         },
       ],
-      stats: {
-        totalPosts: 12560,
-        activeUsers: 842,
-        dailyPosts: 156,
-      },
     }
   },
   computed: {
@@ -196,7 +166,7 @@ export default {
           (post) =>
             post.title.toLowerCase().includes(query) ||
             post.content.toLowerCase().includes(query) ||
-            post.author.name.toLowerCase().includes(query),
+            (post.author && post.author.name && post.author.name.toLowerCase().includes(query)),
         )
       }
 
@@ -220,42 +190,72 @@ export default {
       try {
         const response = await fetch('/api/posts')
         const data = await response.json()
+
         if (data.success) {
-          this.posts = data.posts
+          this.posts = data.posts.map((post) => {
+            const author = post.author || {}
+            return {
+              id: post.id,
+              title: post.title,
+              content: post.content,
+              created_at: post.created_at,
+              likes_count: post.likes_count,
+              comments_count: post.comments_count,
+              author: {
+                name: author.username || author.name || 'Автор',
+                isVerified: author.is_verified || false,
+              },
+              track_name: post.track_name,
+              artist_name: post.artist_name,
+              album_art_url: post.album_art_url,
+              media_url: post.media_url,
+              post_type: post.post_type,
+              tags: post.tags || [],
+              type: post.post_type || 'thought',
+            }
+          })
         }
       } catch (error) {
         console.error('Ошибка загрузки постов:', error)
       }
     },
+
     handleSearch() {
       this.currentPage = 1
     },
+
     applyFilter(filterId) {
       this.activeFilter = filterId
       this.currentPage = 1
     },
+
     followAuthor(authorId) {
       const author = this.popularAuthors.find((a) => a.id === authorId)
       if (author) {
         author.isFollowing = !author.isFollowing
       }
     },
+
     handleLike(postId) {
       console.log('Лайк поста:', postId)
     },
+
     handleComment(postId) {
       this.$router.push(`/post/${postId}`)
     },
+
     handlePostCreated(newPost) {
       this.posts.unshift(newPost)
       this.showCreateModal = false
     },
+
     prevPage() {
       if (this.currentPage > 1) {
         this.currentPage--
         window.scrollTo(0, 0)
       }
     },
+
     nextPage() {
       if (this.currentPage < this.totalPages) {
         this.currentPage++
@@ -388,19 +388,17 @@ export default {
 }
 
 .trend-tag {
-  padding: 0.3rem 0.8rem;
-  background: rgba(138, 43, 226, 0.2);
+  padding: 0.5rem 1rem;
+  background: rgba(138, 43, 226, 0.1);
   border-radius: 15px;
   color: #8a2be2;
   font-size: 0.9rem;
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
+  cursor: pointer;
+  transition: all 0.3s;
 }
 
-.trend-tag small {
-  color: #888;
-  font-size: 0.8rem;
+.trend-tag:hover {
+  background: rgba(138, 43, 226, 0.2);
 }
 
 .popular-authors {
@@ -459,98 +457,52 @@ export default {
   background: rgba(138, 43, 226, 0.2);
 }
 
-.stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1rem;
-}
-
-.stat-item {
-  text-align: center;
-  padding: 1rem;
-  background: rgba(255, 255, 255, 0.03);
-  border-radius: 10px;
-}
-
-.stat-value {
-  display: block;
-  font-size: 1.5rem;
-  font-weight: bold;
-  color: #8a2be2;
-  margin-bottom: 0.2rem;
-}
-
-.stat-label {
-  color: #888;
-  font-size: 0.9rem;
-}
-
 .posts-feed {
   min-height: 100vh;
 }
 
-.create-post-card {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 15px;
-  padding: 1.5rem;
+.create-post-btn-container {
   margin-bottom: 2rem;
 }
 
-.create-post-header {
+.create-post-btn {
+  width: 100%;
+  padding: 1.2rem;
+  background: linear-gradient(90deg, #8a2be2, #4b0082);
+  border: none;
+  border-radius: 15px;
+  color: white;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
-
-.user-avatar {
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
-  object-fit: cover;
-}
-
-.create-post-header input {
-  flex: 1;
-  padding: 0.8rem 1rem;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid #444;
-  border-radius: 10px;
-  color: white;
-  font-size: 1rem;
-  cursor: pointer;
-}
-
-.create-post-header input:hover {
-  background: rgba(255, 255, 255, 0.12);
-}
-
-.create-post-actions {
-  display: flex;
-  gap: 1rem;
-}
-
-.action-btn {
-  flex: 1;
-  padding: 0.8rem;
-  background: transparent;
-  border: 1px solid #444;
-  border-radius: 10px;
-  color: #b0b0b0;
-  cursor: pointer;
+  justify-content: center;
+  gap: 0.5rem;
   transition: all 0.3s;
 }
 
-.action-btn:hover {
-  background: rgba(138, 43, 226, 0.1);
-  border-color: #8a2be2;
-  color: #8a2be2;
+.create-post-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(138, 43, 226, 0.3);
+}
+
+.plus-icon {
+  font-size: 1.5rem;
+  font-weight: bold;
 }
 
 .posts-list {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+}
+
+.no-posts {
+  text-align: center;
+  padding: 3rem;
+  color: #888;
+  font-size: 1.1rem;
 }
 
 .pagination {
@@ -598,13 +550,12 @@ export default {
 }
 
 @media (max-width: 768px) {
-  .create-post-actions {
-    flex-wrap: wrap;
+  .posts-header h1 {
+    font-size: 2rem;
   }
 
-  .action-btn {
-    flex: none;
-    width: calc(50% - 0.5rem);
+  .filter-buttons {
+    justify-content: center;
   }
 }
 
@@ -613,8 +564,9 @@ export default {
     justify-content: center;
   }
 
-  .action-btn {
-    width: 100%;
+  .pagination {
+    flex-direction: column;
+    gap: 0.5rem;
   }
 }
 </style>

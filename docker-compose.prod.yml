@@ -1,22 +1,36 @@
 services:
   backend:
     build:
-      context: ./Backend
+      context: ./backend
       dockerfile: Dockerfile.prod
+    container_name: musblossom-prod
     ports:
-      - "80:5000"
+      - "8080:5000"
     environment:
       - FLASK_ENV=production
       - FLASK_APP=app.py
-      - SECRET_KEY=production-secret-key-change-this-in-real-deployment
-      - JWT_SECRET_KEY=production-jwt-secret-key-change-this
-      - DATABASE_URL=sqlite:///musblossom.db
-      - CORS_ORIGINS=http://localhost
+      - SECRET_KEY=${SECRET_KEY:-production-secret-key-change-this-in-real-deployment}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-production-jwt-secret-key-change-this}
+      - DATABASE_URL=${DATABASE_URL:-sqlite:///musblossom.db}
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost,http://localhost:80}
+    env_file:
+      - .env.production
     volumes:
+      - ./Backend/static:/app/static
+      - media_volume:/app/media
       - db_data:/app/instance
     restart: unless-stopped
-    container_name: web_musblossom
+    networks:
+      - musblossom-network
 
 volumes:
+  static_volume:
+    driver: local
+  media_volume:
+    driver: local
   db_data:
     driver: local
+
+networks:
+  musblossom-network:
+    driver: bridge
